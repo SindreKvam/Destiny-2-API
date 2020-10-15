@@ -13,8 +13,8 @@ CLIENT_ID = "33666"
 ENDPOINT = "https://www.bungie.net/Platform"
 YAWRON_CLAN_ID = "2802086"
 
-bungieUser = requests.get(ENDPOINT+f"/User/GetBungieNetUserById/{USER_ID}/", headers=HEADERS)
-print(bungieUser.json()['Response'])
+#bungieUser = requests.get(ENDPOINT+f"/User/GetBungieNetUserById/{USER_ID}/", headers=HEADERS)
+#print(bungieUser.json()['Response'])
 
 # Get User info (Only mine)
 destinyUser = requests.get(ENDPOINT+f"/User/GetBungieAccount/{USER_ID}/254/", headers=HEADERS)
@@ -23,14 +23,18 @@ membershipId = destinyUserArray['membershipId']
 membershipType = destinyUserArray['membershipType']
 
 # sign in
-Authentication = requests.get(f"https://www.bungie.net/en/oauth/authorize?client_id={CLIENT_ID}&response_type=code")  #&state=6i0mkLx79Hp91nzWVeHrzHG4
-# get the bungled and bungleatk cookie https://www.bungie.net/en/Groups/Post?groupId=39966&postId=85087279&sort=0&page=0&path=1&showBanned=0
-# cookies =
+Authentication = requests.get(f"https://www.bungie.net/en/oauth/authorize?client_id={CLIENT_ID}&response_type=code&state=6i0mkLx79Hp91nzWVeHrzHG4")
 print(Authentication)
+
 r = requests.post(f"https://www.bungie.net/platform/app/oauth/token/", data=f"{CLIENT_ID}&grant_type=authorization_code&code={Authentication}")
 print(r)
 
+print('\n')
+# Check who's signed in
 print(requests.get("https://www.bungie.net/Platform/User/GetCurrentBungieNetUser/").json())
+
+# get the bungled and bungleatk cookie https://www.bungie.net/en/Groups/Post?groupId=39966&postId=85087279&sort=0&page=0&path=1&showBanned=0
+# cookies =
 
 
 # Clan Reward Status
@@ -38,8 +42,6 @@ print(requests.get("https://www.bungie.net/Platform/User/GetCurrentBungieNetUser
 #for i in range(4):
 #    print(clanReward.json()['Response']['rewards'][0]['entries'][i])
 
-
-
-
+# Pull from Postmaster
 #pullPostmaster = requests.post(ENDPOINT+f"/Destiny2/Actions/Items/PullFromPostmaster/", headers=HEADERS)
 #print(pullPostmaster.json())
