@@ -1,20 +1,25 @@
 
 import requests
+import json
 
 # http://destinydevs.github.io/BungieNetPlatform/docs/Getting-Started
 # https://www.bungie.net/en/Application/Detail/38058
 # https://bungie-net.github.io/multi/index.html
 # http://allynh.com/blog/creating-a-python-app-for-destiny-part-3-logging-in-to-bungie-net-and-authenticating-with-psn/
+with open('config.json') as config_file:
+    config = json.load(config_file)
 
-API_KEY = "e215911472b5409f8c0257b6054b6371"
-HEADERS ={"X-API-Key":f"{API_KEY}"}
-USER_ID = "18736344"
-CLIENT_ID = "33666"
+API_KEY = config['APIkey']
+HEADERS = {"X-API-Key":f"{API_KEY}"}
+USER_ID = config["UserId"]
+CLIENT_ID = config["ClientId"]
+CLAN_ID = config['ClanId']
+
 ENDPOINT = "https://www.bungie.net/Platform"
-YAWRON_CLAN_ID = "2802086"
 
-#bungieUser = requests.get(ENDPOINT+f"/User/GetBungieNetUserById/{USER_ID}/", headers=HEADERS)
-#print(bungieUser.json()['Response'])
+
+# bungieUser = requests.get(ENDPOINT+f"/User/GetBungieNetUserById/{USER_ID}/", headers=HEADERS)
+# print(bungieUser.json()['Response'])
 
 # Get User info (Only mine)
 destinyUser = requests.get(ENDPOINT+f"/User/GetBungieAccount/{USER_ID}/254/", headers=HEADERS)
@@ -38,7 +43,7 @@ print(requests.get("https://www.bungie.net/Platform/User/GetCurrentBungieNetUser
 
 
 # Clan Reward Status
-#clanReward = requests.get(ENDPOINT+f"/Destiny2/Clan/{YAWRON_CLAN_ID}/WeeklyRewardState/", headers=HEADERS)
+#clanReward = requests.get(ENDPOINT+f"/Destiny2/Clan/{CLAN_ID}/WeeklyRewardState/", headers=HEADERS)
 #for i in range(4):
 #    print(clanReward.json()['Response']['rewards'][0]['entries'][i])
 
