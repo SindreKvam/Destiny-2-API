@@ -11,26 +11,12 @@ import json
 with open('config.json') as config_file:
     config = json.load(config_file)
 
-
 API_KEY = config['APIkey']
-HEADERS = {"X-API-Key":f"{API_KEY}"}
-USER_ID = config["UserId"]
+HEADERS = {"X-API-Key": f"{API_KEY}"}
 CLIENT_ID = config["ClientId"]
 CLAN_ID = config['ClanId']
 
 ENDPOINT = "https://www.bungie.net/Platform"
-
-
-# bungieUser = requests.get(ENDPOINT+f"/User/GetBungieNetUserById/{USER_ID}/", headers=HEADERS)
-# print(bungieUser.json()['Response'])
-"""
-# Get User info (Only mine)
-destinyUser = requests.get(f"{ENDPOINT}/User/GetBungieAccount/{USER_ID}/254/", headers=HEADERS)
-destinyUserArray = destinyUser.json()['Response']['destinyMemberships'][0]
-membershipId = destinyUserArray['membershipId']
-membershipType = destinyUserArray['membershipType']
-"""
-
 
 redirect_uri = 'https://destinygetauth-key.no/'
 
@@ -54,25 +40,35 @@ token = oauth.fetch_token(
         )
 access_token = token['access_token']
 
-signedIn = oauth.get(
+
+print("Signed in information")
+signedIn = oauth.get(   # oauth.get instead of request.get because auth code is saved in oauth library.
     f'{ENDPOINT}/User/GetMembershipsForCurrentUser/',
     headers=HEADERS
 )
-print("Signed in information")
 printjson(signedIn)
 
+MEMBERSHIP_TYPE = signedIn.json()['Response']['destinyMemberships'][0]['membershipType']
+USER_ID = signedIn.json()['Response']['bungieNetUser']['membershipId']
 
-print("Clan Reward Status")
-clanReward = requests.get(f"{ENDPOINT}/Destiny2/Clan/{CLAN_ID}/WeeklyRewardState/", headers=HEADERS)
-printjson(clanReward)
-for i in range(4):
-    print(clanReward.json()['Response']['rewards'][0]['entries'][i])
 
-# Pull from Postmaster
-pullPostmaster = requests.post(
-    f"{ENDPOINT}/Destiny2/Actions/Items/PullFromPostmaster/",
-    headers=HEADERS,
+def clanstatus():
+    print("Clan Reward Status")
+    clanReward = requests.get(
+        f"{ENDPOINT}/Destiny2/Clan/{CLAN_ID}/WeeklyRewardState/",
+        headers=HEADERS
     )
-printjson(pullPostmaster)
+    printjson(clanReward)
+    for i in range(4):
+        print(clanReward.json()['Response']['rewards'][0]['entries'][i])
+
+
+def pullfrompostmaster():
+    print("Pull from Postmaster")
+    pullPostmaster = oauth.post(
+        f"{ENDPOINT}/Destiny2/Actions/Items/PullFromPostmaster/",
+        headers=HEADERS,
+        )
+    printjson(pullPostmaster)
 
 
