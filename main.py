@@ -22,10 +22,8 @@ redirect_uri = 'https://destinygetauth-key.no/'
 
 oauth = OAuth2Session(CLIENT_ID, redirect_uri=redirect_uri)
 authorization_url, state = oauth.authorization_url(
-        'https://www.bungie.net/en/oauth/authorize',
-        # parameters.
-        # access_type="offline", prompt="select_account"
-        state="6i0mkLx79Hp91nzWVeHrzHG4"    # Random code here just to see what the API responds to.
+        'https://www.bungie.net/en/oauth/authorize'
+        # state='random numbers', isn't needed but can be used to always recognize which process is responded to
         )
 
 
