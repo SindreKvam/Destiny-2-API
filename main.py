@@ -5,7 +5,6 @@ from definitions import printjson
 from flask import Flask, render_template, request, redirect
 import json
 
-# http://destinydevs.github.io/BungieNetPlatform/docs/Getting-Started
 # https://www.bungie.net/en/Application/Detail/38058
 # https://bungie-net.github.io/multi/index.html
 
@@ -65,7 +64,16 @@ def login_post():
 
 @app.route('/')
 def index():
-    return 'Hello world'
+    return render_template('index.html')
+
+
+@app.route('/', methods=['POST'])
+def index_post():
+    if request.form['login']:
+        return redirect('/login')
+    if request.form['info']:
+        return redirect('/info')
+
 
 
 @app.route('/info')
@@ -104,3 +112,6 @@ def pullfrompostmaster():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
+
+# Destiny.Entities.Vendors.DestinyVendorCategory
