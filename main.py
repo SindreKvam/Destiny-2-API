@@ -137,7 +137,9 @@ class Api:
             '179977573': 'blessing of rasputin',
             '2216063963': 'burning cells',
             '2216063961': 'fireteam medic',
-            '1789319806': 'modular lightning'
+            '1789319806': 'modular lightning',
+            '2597888506': 'light from darkness',
+            '2216063967': 'incinerating light'
         }
 
         sale_status = []
@@ -151,17 +153,6 @@ class Api:
                 return mods[str(banshee_sales[i])]
 
         return None
-#        if f'{mod_id}' in list(mods.keys()):
-#            return mods[f'{mod_id}']
-#        else:
-#            return mod_id
-
-    def getItemInfo(self, itemID):
-        item = oauth.get(
-            f'{endpoint}/Content/GetContentById/{itemID}/en/',
-            headers=header
-        )
-        return item
 
     def clanstatus(self):
         print("Clan Reward Status")
@@ -186,12 +177,5 @@ class Api:
 
 if __name__ == '__main__':
     api = Api()
-    #printjson(api.getItemInfo(api.availableModsBanshee()))
-    #printjson(api.vendors('banshee'))
-    #api.pullfrompostmaster()
     print(api.availableModsBanshee())
     # app.run(debug=True, host='0.0.0.0')
-
-
-# Destiny.Entities.Vendors.DestinyVendorCategory
-# /Destiny2/{membershipType}/Profile/{destinyMembershipId}/Character/{characterId}/Vendors/
