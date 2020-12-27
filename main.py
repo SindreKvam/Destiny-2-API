@@ -1,38 +1,48 @@
 
 import requests
+import pprint
+import json
 from requests_oauthlib import OAuth2Session
 from definitions import printjson
 from flask import Flask, render_template, request, redirect
-import json
+
 
 # https://www.bungie.net/en/Application/Detail/38058
 # https://bungie-net.github.io/multi/index.html
 
+# Extracting what's in the config file and putting it in a dictionary called config
 with open('config.json') as config_file:
     config = json.load(config_file)
 
+# start the Flask application
 app = Flask(__name__)
 
-# Collecting inputs from the config file
-API_KEY = config['APIkey']
-header = {'X-API-Key': f'{API_KEY}'}
-CLIENT_ID = config['ClientId']
-CLAN_ID = config['ClanId']
+# start the pretty printer application
+pp = pprint.PrettyPrinter(indent=4)
 
-# Start link for almost all requests
+# Collecting inputs from the config file
+api_key = config['APIkey']
+client_id = config['ClientId']
+clan_id = config['ClanId']
+
+# Set the header for when sending requests
+header = {'X-API-Key': f'{api_key}'}
+
+# Set the endpoint that's going to be used for the requests sent
 endpoint = "https://www.bungie.net/Platform"
 
 # redirect uri, must match the application on https://www.bungie.net/developer
 redirect_uri = 'https://destinygetauth-key.no/'
 
-oauth = OAuth2Session(CLIENT_ID, redirect_uri=redirect_uri)
+# Setting up oauth
+oauth = OAuth2Session(client_id, redirect_uri=redirect_uri)
 authorization_url, state = oauth.authorization_url(
         'https://www.bungie.net/en/oauth/authorize'
         # state='random numbers', isn't needed but can be used to always recognize which process is responded to
         )
 
 
-class Api:
+class BungieApi:
     unique_name = None
     membership_type = None
     membership_id = None
@@ -98,6 +108,21 @@ class Api:
         self.character2 = self.character_id[1]
         self.character3 = self.character_id[2]
 
+    def getManifest(self):
+        manifest = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/',
+            headers=header
+        )
+        manifest_en = manifest.json()['Response']['jsonWorldComponentContentPaths']['en']
+        return manifest_en
+
+    def manifestVendorDescription(self, vendor_hash):
+        vendor_definition = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/DestinyVendorDefinition/{vendor_hash}',
+            headers=header
+        )
+        return vendor_definition
+
     def locales(self):
         locales = oauth.get(
             f'{endpoint}/GetAvailableLocales/',
@@ -155,12 +180,12 @@ class Api:
             if str(banshee_sales[i]) in list(mods.keys()):
                 return mods[str(banshee_sales[i])]
 
-        return None
+        return vendor_item_index
 
     def clanstatus(self):
         print("Clan Reward Status")
         clanReward = requests.get(
-            f"{endpoint}/Destiny2/Clan/{CLAN_ID}/WeeklyRewardState/",
+            f"{endpoint}/Destiny2/Clan/{clan_id}/WeeklyRewardState/",
             headers=header
         )
         printjson(clanReward)
@@ -179,6 +204,7 @@ class Api:
 
 
 if __name__ == '__main__':
-    api = Api()
-    print(api.availableModsBanshee())
+    api = BungieApi()
+    printjson(api.manifestVendorDescription(672118013))
+    #print(api.availableModsBanshee())
     # app.run(debug=True, host='0.0.0.0')
