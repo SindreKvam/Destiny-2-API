@@ -7,4 +7,3 @@ def printjson(input):
     json_object = json.loads(json_string)
     json_formatted_str = json.dumps(json_object, indent=4)
     return print(json_formatted_str)
-
