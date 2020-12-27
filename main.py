@@ -6,7 +6,6 @@ from requests_oauthlib import OAuth2Session
 from definitions import printjson
 from flask import Flask, render_template, request, redirect
 
-
 # https://www.bungie.net/en/Application/Detail/38058
 # https://bungie-net.github.io/multi/index.html
 
@@ -51,6 +50,15 @@ class BungieApi:
     character1 = None
     character2 = None
     character3 = None
+
+    vendorhashes = {
+        'all': '',
+        'xur': '2190858386/',
+        'banshee': '672118013/',
+        'tess-everis': '3361454721/',
+        'zavala': '69482069/',
+
+    }
 
     def __init__(self):
         print(f'Please go to {authorization_url} and authorize access.')
@@ -121,6 +129,7 @@ class BungieApi:
             f'{endpoint}/Destiny2/Manifest/DestinyVendorDefinition/{vendor_hash}',
             headers=header
         )
+
         return vendor_definition
 
     def locales(self):
@@ -131,28 +140,25 @@ class BungieApi:
         return locales
 
     def vendors(self, vendor):
-        vendorhashes = {
-            'all': '',
-            'xur': '2190858386/',
-            'banshee': '672118013/',
-            'tess-everis': '3361454721/',
-            'zavala': '69482069/',
-
-        }
-        if vendor in vendorhashes.keys():
+        if vendor in self.vendorhashes.keys():
             vendors = oauth.get(
                 f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}/Character/{self.character2}'
-                f'/Vendors/{vendorhashes[vendor]}?description=True&components=402',
+                f'/Vendors/{self.vendorhashes[vendor]}?description=True&components=402',
                 headers=header
             )
             return vendors
         else:
-            raise ValueError(f'Not a valid vendor, valid vendors are: {list(vendorhashes.keys())}')
+            raise ValueError(f'Not a valid vendor, valid vendors are: {list(self.vendorhashes.keys())}')
 
-    def availableModsBanshee(self):
-        vendors = self.vendors('banshee')
+    def getAvailableModsBanshee(self):
+        vendor_definition = self.manifestVendorDescription(self.vendorhashes['banshee'])
 
-        vendor_item_index = vendors.json()['Response']['sales']['data']
+        weapon_mod_indexes = vendor_definition.json()['Response']['categories'][18]['vendorItemIndexes']
+        armour_mod_indexes = vendor_definition.json()['Response']['categories'][17]['vendorItemIndexes']
+
+        vendor = self.vendors('banshee')
+
+        vendor_item_index = vendor.json()['Response']['sales']['data']
         vendor_item_index_list = list(vendor_item_index.keys())
 
         mods = {
@@ -170,17 +176,33 @@ class BungieApi:
             '2216063967': 'incinerating light'
         }
 
-        sale_status = []
-        banshee_sales = []
-        for i in vendor_item_index_list:
-            sale_status.append(vendor_item_index[i]['saleStatus'])
-            banshee_sales.append(vendor_item_index[i]['itemHash'])
+        weapon_mod_owned = False
+        weapon_mod_hash = 0
+        for index in range(len(weapon_mod_indexes)):
+            if str(weapon_mod_indexes[index]) in vendor_item_index_list:
+                weapon_mod_info = vendor_item_index[str(weapon_mod_indexes[index])]
+                weapon_mod_hash = weapon_mod_info['itemHash']
+                weapon_mod_owned = weapon_mod_info['saleStatus']
+                if int(weapon_mod_owned) != 0:
+                    weapon_mod_owned = True      # If already owned, change to True
+                break
 
-        for i in range(len(banshee_sales)):
-            if str(banshee_sales[i]) in list(mods.keys()):
-                return mods[str(banshee_sales[i])]
+        armour_mod_owned = False
+        armour_mod_hash = 0
+        for index in range(len(armour_mod_indexes)):
+            if str(armour_mod_indexes[index]) in vendor_item_index_list:
+                armour_mod_info = vendor_item_index[str(armour_mod_indexes[index])]
+                armour_mod_hash = armour_mod_info['itemHash']
+                armour_mod_owned = armour_mod_info['saleStatus']
+                if int(armour_mod_owned) == 8 or int(armour_mod_owned) == 4096:
+                    armour_mod_owned = True      # If already owned, change to True
+                break
 
-        return vendor_item_index
+        return {'armour_hash':f'{armour_mod_hash}',
+                'armour_owned': f'{armour_mod_owned}',
+                'weapon_hash': f'{weapon_mod_hash}',
+                'weapon_owned': f'{weapon_mod_owned}'
+                }
 
     def clanstatus(self):
         print("Clan Reward Status")
@@ -205,6 +227,6 @@ class BungieApi:
 
 if __name__ == '__main__':
     api = BungieApi()
-    printjson(api.manifestVendorDescription(672118013))
+    pp.pprint(api.getAvailableModsBanshee())
     #print(api.availableModsBanshee())
     # app.run(debug=True, host='0.0.0.0')
