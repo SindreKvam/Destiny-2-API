@@ -38,6 +38,9 @@ class Api:
     membership_id = None
     membership_id_bungie = None
     character_id = None
+    character1 = None
+    character2 = None
+    character3 = None
 
     def __init__(self):
         print(f'Please go to {authorization_url} and authorize access.')
