@@ -1,9 +1,8 @@
 
 import requests
-import pprint
 import json
 from requests_oauthlib import OAuth2Session
-from definitions import printjson
+from definitions import printjson, printdict
 from flask import Flask, render_template, request, redirect
 
 # https://www.bungie.net/en/Application/Detail/38058
@@ -15,9 +14,6 @@ with open('config.json') as config_file:
 
 # start the Flask application
 app = Flask(__name__)
-
-# start the pretty printer application
-pp = pprint.PrettyPrinter(indent=4)
 
 # Collecting inputs from the config file
 api_key = config['APIkey']
@@ -132,6 +128,13 @@ class BungieApi:
 
         return vendor_definition
 
+    def manifestInventoryItemDefinition(self, item_hash):
+        inventory_item_definition = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/DestinyInventoryItemDefinition/{item_hash}',
+            headers=header
+        )
+        return inventory_item_definition
+
     def locales(self):
         locales = oauth.get(
             f'{endpoint}/GetAvailableLocales/',
@@ -161,21 +164,6 @@ class BungieApi:
         vendor_item_index = vendor.json()['Response']['sales']['data']
         vendor_item_index_list = list(vendor_item_index.keys())
 
-        mods = {
-            '179977568': 'grasp of the warmind',
-            '2597888510': 'cellular supression',
-            '2597888511': 'power of rasputin',
-            '2597888509': 'warminds longevity',
-            '2597888508': 'warminds protection',
-            '179977575': 'warminds light',
-            '179977573': 'blessing of rasputin',
-            '2216063963': 'burning cells',
-            '2216063961': 'fireteam medic',
-            '1789319806': 'modular lightning',
-            '2597888506': 'light from darkness',
-            '2216063967': 'incinerating light'
-        }
-
         weapon_mod_owned = False
         weapon_mod_hash = 0
         for index in range(len(weapon_mod_indexes)):
@@ -198,10 +186,11 @@ class BungieApi:
                     armour_mod_owned = True      # If already owned, change to True
                 break
 
-        return {'armour_hash':f'{armour_mod_hash}',
-                'armour_owned': f'{armour_mod_owned}',
-                'weapon_hash': f'{weapon_mod_hash}',
-                'weapon_owned': f'{weapon_mod_owned}'
+        weapon_mod_name = self.manifestInventoryItemDefinition(weapon_mod_hash).json()['Response']['displayProperties']['name']
+        armour_mod_name = self.manifestInventoryItemDefinition(armour_mod_hash).json()['Response']['displayProperties']['name']
+        printdict(self.manifestInventoryItemDefinition(armour_mod_hash).json())
+        return {'armour mod': {f'name': f'{armour_mod_name}', f'hash': f'{armour_mod_hash}', 'owned': f'{armour_mod_owned}'},
+                'weapon mod': {f'name': f'{weapon_mod_name}', f'hash': f'{weapon_mod_hash}', 'owned': f'{weapon_mod_owned}'}
                 }
 
     def clanstatus(self):
@@ -227,6 +216,7 @@ class BungieApi:
 
 if __name__ == '__main__':
     api = BungieApi()
-    pp.pprint(api.getAvailableModsBanshee())
-    #print(api.availableModsBanshee())
+    #printdict(api.getManifest())
+    printdict(api.getAvailableModsBanshee())
+
     # app.run(debug=True, host='0.0.0.0')
