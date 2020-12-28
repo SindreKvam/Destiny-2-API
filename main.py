@@ -112,6 +112,8 @@ class BungieApi:
         self.character2 = self.character_id[1]
         self.character3 = self.character_id[2]
 
+
+
     def getManifest(self):
         manifest = oauth.get(
             f'{endpoint}/Destiny2/Manifest/',
@@ -135,6 +137,10 @@ class BungieApi:
         )
         return inventory_item_definition
 
+    def getItemName(self, item_hash):
+        return self.manifestInventoryItemDefinition(item_hash).json()['Response']['displayProperties']['name']
+
+
     def locales(self):
         locales = oauth.get(
             f'{endpoint}/GetAvailableLocales/',
@@ -153,10 +159,23 @@ class BungieApi:
         else:
             raise ValueError(f'Not a valid vendor, valid vendors are: {list(self.vendorhashes.keys())}')
 
+    def handleItemIndexes(self, indexes, vendor_indexes, vendor_index_list):
+        item_owned = False
+        item_hash = 0
+        for index in range(len(indexes)):
+            if str(indexes[index]) in vendor_index_list:
+                item_info = vendor_indexes[str(indexes[index])]
+                item_hash = item_info['itemHash']
+                item_owned = item_info['saleStatus']
+                if int(item_owned) == 8 or int(item_owned) == 4096:
+                    item_owned = True  # If already owned, change to True
+                break
+        return item_hash, item_owned
+
     def getAvailableModsBanshee(self):
         vendor_definition = self.manifestVendorDescription(self.vendorhashes['banshee'])
 
-        weapon_mod_indexes = vendor_definition.json()['Response']['categories'][18]['vendorItemIndexes']
+        weapon_mod_indexes = vendor_definition.json()['Response']['categories'][18]['vendorItemIndexes']    # unsure if the positional argument will work in the future (18)
         armour_mod_indexes = vendor_definition.json()['Response']['categories'][17]['vendorItemIndexes']
 
         vendor = self.vendors('banshee')
@@ -164,33 +183,44 @@ class BungieApi:
         vendor_item_index = vendor.json()['Response']['sales']['data']
         vendor_item_index_list = list(vendor_item_index.keys())
 
-        weapon_mod_owned = False
-        weapon_mod_hash = 0
-        for index in range(len(weapon_mod_indexes)):
-            if str(weapon_mod_indexes[index]) in vendor_item_index_list:
-                weapon_mod_info = vendor_item_index[str(weapon_mod_indexes[index])]
-                weapon_mod_hash = weapon_mod_info['itemHash']
-                weapon_mod_owned = weapon_mod_info['saleStatus']
-                if int(weapon_mod_owned) != 0:
-                    weapon_mod_owned = True      # If already owned, change to True
-                break
+        weapon_mod_hash, weapon_mod_owned = self.handleItemIndexes(weapon_mod_indexes, vendor_item_index, vendor_item_index_list)
+        armour_mod_hash, armour_mod_owned = self.handleItemIndexes(armour_mod_indexes, vendor_item_index, vendor_item_index_list)
 
-        armour_mod_owned = False
-        armour_mod_hash = 0
-        for index in range(len(armour_mod_indexes)):
-            if str(armour_mod_indexes[index]) in vendor_item_index_list:
-                armour_mod_info = vendor_item_index[str(armour_mod_indexes[index])]
-                armour_mod_hash = armour_mod_info['itemHash']
-                armour_mod_owned = armour_mod_info['saleStatus']
-                if int(armour_mod_owned) == 8 or int(armour_mod_owned) == 4096:
-                    armour_mod_owned = True      # If already owned, change to True
-                break
+        weapon_mod_name = self.getItemName(weapon_mod_hash)
+        armour_mod_name = self.getItemName(armour_mod_hash)
 
-        weapon_mod_name = self.manifestInventoryItemDefinition(weapon_mod_hash).json()['Response']['displayProperties']['name']
-        armour_mod_name = self.manifestInventoryItemDefinition(armour_mod_hash).json()['Response']['displayProperties']['name']
-        printdict(self.manifestInventoryItemDefinition(armour_mod_hash).json())
         return {'armour mod': {f'name': f'{armour_mod_name}', f'hash': f'{armour_mod_hash}', 'owned': f'{armour_mod_owned}'},
                 'weapon mod': {f'name': f'{weapon_mod_name}', f'hash': f'{weapon_mod_hash}', 'owned': f'{weapon_mod_owned}'}
+                }
+
+    def getXurInfo(self):
+        vendor_definition = self.manifestVendorDescription(self.vendorhashes['xur'])
+
+        exotic_weapon_indexes = vendor_definition.json()['Response']['categories'][1]['vendorItemIndexes']  # unsure if the positional argument will work in the future (18)
+        armour_hunter = vendor_definition.json()['Response']['categories'][2]['vendorItemIndexes']
+        armour_titan = vendor_definition.json()['Response']['categories'][3]['vendorItemIndexes']
+        armour_warlock = vendor_definition.json()['Response']['categories'][4]['vendorItemIndexes']
+
+        vendor = self.vendors('xur')
+
+        vendor_item_index = vendor.json()['Response']['sales']['data']
+        vendor_item_index_list = list(vendor_item_index.keys())
+
+        exotic_weapon_hash, exotic_weapon_owned = self.handleItemIndexes(exotic_weapon_indexes, vendor_item_index, vendor_item_index_list)
+
+        armour_hunter_hash, armour_hunter_owned = self.handleItemIndexes(armour_hunter, vendor_item_index, vendor_item_index_list)
+        armour_titan_hash, armour_titan_owned = self.handleItemIndexes(armour_titan, vendor_item_index, vendor_item_index_list)
+        armour_warlock_hash, armour_warlock_owned = self.handleItemIndexes(armour_warlock, vendor_item_index, vendor_item_index_list)
+
+        exotic_weapon_name = self.getItemName(exotic_weapon_hash)
+        armour_hunter_name = self.getItemName(armour_hunter_hash)
+        armour_titan_name = self.getItemName(armour_titan_hash)
+        armour_warlock_name = self.getItemName(armour_warlock_hash)
+
+        return {'Exotic Weapon': {'name': f'{exotic_weapon_name}', 'hash': f'{exotic_weapon_hash}'},
+                'Hunter Armour': {'name': f'{armour_hunter_name}', 'hash': f'{armour_hunter_hash}'},
+                'Titan Armour': {'name': f'{armour_titan_name}', 'hash': f'{armour_titan_hash}'},
+                'Warlock Armour': {'name': f'{armour_warlock_name}', 'hash': f'{armour_warlock_hash}'}
                 }
 
     def clanstatus(self):
@@ -217,6 +247,10 @@ class BungieApi:
 if __name__ == '__main__':
     api = BungieApi()
     #printdict(api.getManifest())
+
     printdict(api.getAvailableModsBanshee())
+
+    printdict(api.getXurInfo())
+
 
     # app.run(debug=True, host='0.0.0.0')
