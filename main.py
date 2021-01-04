@@ -53,7 +53,6 @@ class BungieApi:
         'banshee': '672118013/',
         'tess-everis': '3361454721/',
         'zavala': '69482069/',
-
     }
 
     def __init__(self):
@@ -112,8 +111,6 @@ class BungieApi:
         self.character2 = self.character_id[1]
         self.character3 = self.character_id[2]
 
-
-
     def getManifest(self):
         manifest = oauth.get(
             f'{endpoint}/Destiny2/Manifest/',
@@ -127,7 +124,6 @@ class BungieApi:
             f'{endpoint}/Destiny2/Manifest/DestinyVendorDefinition/{vendor_hash}',
             headers=header
         )
-
         return vendor_definition
 
     def manifestInventoryItemDefinition(self, item_hash):
@@ -140,7 +136,6 @@ class BungieApi:
     def getItemName(self, item_hash):
         return self.manifestInventoryItemDefinition(item_hash).json()['Response']['displayProperties']['name']
 
-
     def locales(self):
         locales = oauth.get(
             f'{endpoint}/GetAvailableLocales/',
@@ -148,16 +143,40 @@ class BungieApi:
         )
         return locales
 
-    def vendors(self, vendor):
+    def get_vendors(self, vendor):
         if vendor in self.vendorhashes.keys():
             vendors = oauth.get(
-                f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}/Character/{self.character2}'
+                f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}/Character/{self.character1}'
                 f'/Vendors/{self.vendorhashes[vendor]}?description=True&components=402',
                 headers=header
             )
             return vendors
         else:
             raise ValueError(f'Not a valid vendor, valid vendors are: {list(self.vendorhashes.keys())}')
+
+    def get_vendor_info(self):
+        vendor_names = []
+        vendor_subtitles = []
+        vendor_identifier = []
+        vendor_description = []
+
+        vendor_info = {}
+
+        vendor_hashes = list(self.get_vendors('all').json()['Response']['sales']['data'].keys())
+
+        for i in range(len(vendor_hashes)):
+            vendor_manifest = self.manifestVendorDescription(vendor_hashes[i]).json()
+
+            vendor_names.append(vendor_manifest['Response']['displayProperties']['name'])
+            vendor_subtitles.append(vendor_manifest['Response']['displayProperties']['subtitle'])
+            vendor_identifier.append(vendor_manifest['Response']['vendorIdentifier'])
+            vendor_description.append(vendor_manifest['Response']['displayProperties']['description'])
+
+            vendor_info[vendor_names[i]] = {'hash': f'{vendor_hashes[i]}',
+                                            'subtitle': f'{vendor_subtitles[i]}',
+                                            'identifier': f'{vendor_identifier[i]}',
+                                            'description': f'{vendor_description[i]}'}
+        return vendor_info
 
     def handleItemIndexes(self, indexes, vendor_indexes, vendor_index_list):
         item_owned = False
@@ -167,60 +186,74 @@ class BungieApi:
                 item_info = vendor_indexes[str(indexes[index])]
                 item_hash = item_info['itemHash']
                 item_owned = item_info['saleStatus']
+
                 if int(item_owned) == 8 or int(item_owned) == 4096:
                     item_owned = True  # If already owned, change to True
                 break
         return item_hash, item_owned
 
     def getAvailableModsBanshee(self):
-        vendor_definition = self.manifestVendorDescription(self.vendorhashes['banshee'])
+        vendor_definition = self.manifestVendorDescription('672118013')
 
-        weapon_mod_indexes = vendor_definition.json()['Response']['categories'][18]['vendorItemIndexes']    # unsure if the positional argument will work in the future (18)
-        armour_mod_indexes = vendor_definition.json()['Response']['categories'][17]['vendorItemIndexes']
+        # unsure if the positional argument will work in the future (18)
+        weapon_mod_indexes = vendor_definition.json()['Response']['categories'][18]['vendorItemIndexes']
+        armor_mod_indexes = vendor_definition.json()['Response']['categories'][17]['vendorItemIndexes']
 
-        vendor = self.vendors('banshee')
+        vendor = self.get_vendors('banshee')
 
         vendor_item_index = vendor.json()['Response']['sales']['data']
         vendor_item_index_list = list(vendor_item_index.keys())
 
-        weapon_mod_hash, weapon_mod_owned = self.handleItemIndexes(weapon_mod_indexes, vendor_item_index, vendor_item_index_list)
-        armour_mod_hash, armour_mod_owned = self.handleItemIndexes(armour_mod_indexes, vendor_item_index, vendor_item_index_list)
+        weapon_mod_hash, weapon_mod_owned = self.handleItemIndexes(
+                                            weapon_mod_indexes, vendor_item_index, vendor_item_index_list)
+        armor_mod_hash, armor_mod_owned = self.handleItemIndexes(
+                                            armor_mod_indexes, vendor_item_index, vendor_item_index_list)
 
         weapon_mod_name = self.getItemName(weapon_mod_hash)
-        armour_mod_name = self.getItemName(armour_mod_hash)
+        armor_mod_name = self.getItemName(armor_mod_hash)
 
-        return {'armour mod': {f'name': f'{armour_mod_name}', f'hash': f'{armour_mod_hash}', 'owned': f'{armour_mod_owned}'},
-                'weapon mod': {f'name': f'{weapon_mod_name}', f'hash': f'{weapon_mod_hash}', 'owned': f'{weapon_mod_owned}'}
+        return {'armor mod': {f'name': f'{armor_mod_name}', 
+                               f'hash': f'{armor_mod_hash}', 
+                               'owned': f'{armor_mod_owned}'},
+                'weapon mod': {f'name': f'{weapon_mod_name}', 
+                               f'hash': f'{weapon_mod_hash}', 
+                               'owned': f'{weapon_mod_owned}'}
                 }
 
-    def getXurInfo(self):
-        vendor_definition = self.manifestVendorDescription(self.vendorhashes['xur'])
+    def getXurInventory(self):
+        vendor_definition = self.manifestVendorDescription('2190858386')
 
-        exotic_weapon_indexes = vendor_definition.json()['Response']['categories'][1]['vendorItemIndexes']  # unsure if the positional argument will work in the future (18)
-        armour_hunter = vendor_definition.json()['Response']['categories'][2]['vendorItemIndexes']
-        armour_titan = vendor_definition.json()['Response']['categories'][3]['vendorItemIndexes']
-        armour_warlock = vendor_definition.json()['Response']['categories'][4]['vendorItemIndexes']
+        exotic_weapon_indexes = vendor_definition.json()['Response']['categories'][1]['vendorItemIndexes']
+        armor_hunter = vendor_definition.json()['Response']['categories'][2]['vendorItemIndexes']
+        armor_titan = vendor_definition.json()['Response']['categories'][3]['vendorItemIndexes']
+        armor_warlock = vendor_definition.json()['Response']['categories'][4]['vendorItemIndexes']
 
-        vendor = self.vendors('xur')
+        vendor = self.get_vendors('xur')
+
+        if vendor.json()['ErrorCode'] == 1627:
+            return vendor.json()['Message']
 
         vendor_item_index = vendor.json()['Response']['sales']['data']
         vendor_item_index_list = list(vendor_item_index.keys())
 
-        exotic_weapon_hash, exotic_weapon_owned = self.handleItemIndexes(exotic_weapon_indexes, vendor_item_index, vendor_item_index_list)
-
-        armour_hunter_hash, armour_hunter_owned = self.handleItemIndexes(armour_hunter, vendor_item_index, vendor_item_index_list)
-        armour_titan_hash, armour_titan_owned = self.handleItemIndexes(armour_titan, vendor_item_index, vendor_item_index_list)
-        armour_warlock_hash, armour_warlock_owned = self.handleItemIndexes(armour_warlock, vendor_item_index, vendor_item_index_list)
+        exotic_weapon_hash, exotic_weapon_owned = self.handleItemIndexes(
+                                                exotic_weapon_indexes, vendor_item_index, vendor_item_index_list)
+        armor_hunter_hash, armor_hunter_owned = self.handleItemIndexes(
+                                                armor_hunter, vendor_item_index, vendor_item_index_list)
+        armor_titan_hash, armor_titan_owned = self.handleItemIndexes(
+                                                armor_titan, vendor_item_index, vendor_item_index_list)
+        armor_warlock_hash, armor_warlock_owned = self.handleItemIndexes(
+                                                armor_warlock, vendor_item_index, vendor_item_index_list)
 
         exotic_weapon_name = self.getItemName(exotic_weapon_hash)
-        armour_hunter_name = self.getItemName(armour_hunter_hash)
-        armour_titan_name = self.getItemName(armour_titan_hash)
-        armour_warlock_name = self.getItemName(armour_warlock_hash)
+        armor_hunter_name = self.getItemName(armor_hunter_hash)
+        armor_titan_name = self.getItemName(armor_titan_hash)
+        armor_warlock_name = self.getItemName(armor_warlock_hash)
 
         return {'Exotic Weapon': {'name': f'{exotic_weapon_name}', 'hash': f'{exotic_weapon_hash}'},
-                'Hunter Armour': {'name': f'{armour_hunter_name}', 'hash': f'{armour_hunter_hash}'},
-                'Titan Armour': {'name': f'{armour_titan_name}', 'hash': f'{armour_titan_hash}'},
-                'Warlock Armour': {'name': f'{armour_warlock_name}', 'hash': f'{armour_warlock_hash}'}
+                'Hunter': {'name': f'{armor_hunter_name}', 'hash': f'{armor_hunter_hash}'},
+                'Titan': {'name': f'{armor_titan_name}', 'hash': f'{armor_titan_hash}'},
+                'Warlock': {'name': f'{armor_warlock_name}', 'hash': f'{armor_warlock_hash}'}
                 }
 
     def clanstatus(self):
@@ -233,24 +266,32 @@ class BungieApi:
         for i in range(4):
             print(clanReward.json()['Response']['rewards'][0]['entries'][i])
 
-    def pullfrompostmaster(self):
+    def pullfrompostmaster(self, character, item_id, item_reference_hash):
         print("Pull from Postmaster")
-        pullPostmaster = oauth.post(
+        if 0 > character > 2:
+            raise ValueError('choose a character between 1-3')
+        pull_postmaster_response = oauth.post(
             f"{endpoint}/Destiny2/Actions/Items/PullFromPostmaster/",
             headers=header,
-            data={'characterId': f'{self.character3}',
-                  'membershipType': f'{self.membership_type}'}
+            data={'characterId': f'{self.character_id[character-1]}',
+                  'membershipType': f'{self.membership_type}',
+                  'itemId': f'{item_id}',
+                  'itemReferenceHash': f'{item_reference_hash}'}
             )
-        printjson(pullPostmaster)
+        printjson(pull_postmaster_response)
+
+    def raidReportCardLink(self):
+        print(f'https://raid.report/pc/{self.membership_id}')
+
 
 
 if __name__ == '__main__':
     api = BungieApi()
-    #printdict(api.getManifest())
+    # printdict(api.getManifest())
 
-    printdict(api.getAvailableModsBanshee())
+    #printdict(api.getAvailableModsBanshee())
 
-    printdict(api.getXurInfo())
-
-
+    # api.pullfrompostmaster()
+    #printdict(api.getXurInventory())
+    printdict(api.get_vendor_info())
     # app.run(debug=True, host='0.0.0.0')
