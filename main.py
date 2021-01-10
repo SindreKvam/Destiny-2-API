@@ -1,12 +1,16 @@
 
 import requests
 import json
+import numpy as np
+from time import sleep, time
+from tqdm import tqdm
 from requests_oauthlib import OAuth2Session
 from definitions import printjson, printdict
 from flask import Flask, render_template, request, redirect
 
 # https://www.bungie.net/en/Application/Detail/38058
 # https://bungie-net.github.io/multi/index.html
+# components = https://bungie-net.github.io/multi/schema_Destiny-DestinyComponentType.html
 
 # Extracting what's in the config file and putting it in a dictionary called config
 with open('config.json') as config_file:
@@ -42,10 +46,7 @@ class BungieApi:
     membership_type = None
     membership_id = None
     membership_id_bungie = None
-    character_id = None
-    character1 = None
-    character2 = None
-    character3 = None
+    character_ids = None
 
     vendorhashes = {
         'all': '',
@@ -106,10 +107,7 @@ class BungieApi:
         )
 
         # Character Id's
-        self.character_id = signed_in.json()['Response']['profile']['data']['characterIds']
-        self.character1 = self.character_id[0]
-        self.character2 = self.character_id[1]
-        self.character3 = self.character_id[2]
+        self.character_ids = signed_in.json()['Response']['profile']['data']['characterIds']
 
     def getManifest(self):
         manifest = oauth.get(
@@ -143,16 +141,71 @@ class BungieApi:
         )
         return locales
 
-    def get_vendors(self, vendor):
+    def get_vendors(self, vendor='all'):
         if vendor in self.vendorhashes.keys():
             vendors = oauth.get(
-                f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}/Character/{self.character1}'
+                f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}/Character/{self.character_ids[0]}'
                 f'/Vendors/{self.vendorhashes[vendor]}?description=True&components=402',
                 headers=header
             )
             return vendors
         else:
             raise ValueError(f'Not a valid vendor, valid vendors are: {list(self.vendorhashes.keys())}')
+
+    def get_character(self, character_num):
+        primary_slot = []
+        secondary_slot = []
+        heavy_slot = []
+        equipped_items = []
+
+        character_info = oauth.get(
+            f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}'
+            f'/Character/{self.character_ids[character_num-1]}'
+            f'/?components=Characters,CharacterInventories,CharacterEquipment',
+            headers=header
+        )
+        item_list = character_info.json()['Response']['inventory']['data']['items']
+
+        for i in range(len(item_list)):
+            item_hash = item_list[i]['itemHash']
+
+            if item_list[i]['bucketHash'] == 1498876634:
+                item_name = self.getItemName(item_hash)
+                primary_slot.append({
+                    'itemName': f'{item_name}',
+                    'itemHash': f'{item_hash}',
+                    'itemInstanceId': f'{item_list[i]["itemInstanceId"]}'})
+            elif item_list[i]['bucketHash'] == 2465295065:
+                item_name = self.getItemName(item_hash)
+                secondary_slot.append({
+                    'itemName': f'{item_name}',
+                    'itemHash': f'{item_hash}',
+                    'itemInstanceId': f'{item_list[i]["itemInstanceId"]}'})
+            elif item_list[i]['bucketHash'] == 953998645:
+                item_name = self.getItemName(item_hash)
+                heavy_slot.append({
+                    'itemName': f'{item_name}',
+                    'itemHash': f'{item_hash}',
+                    'itemInstanceId': f'{item_list[i]["itemInstanceId"]}'})
+
+        equipped_item_list = character_info.json()['Response']['equipment']['data']['items']
+        for i in range(8):
+            item_hash = equipped_item_list[i]['itemHash']
+            item_name = self.getItemName(item_hash)
+            equipped_items.append({
+                'itemName': f'{item_name}',
+                'itemHash': f'{item_hash}',
+                'itemInstanceId': f'{equipped_item_list[i]["itemInstanceId"]}'})
+
+        return equipped_items
+
+    def get_detailed_item_info(self, item_instance_id):
+        item_info = oauth.get(
+            f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}'
+            f'/Item/{item_instance_id}/?components=ItemInstances,ItemPerks,ItemStats,ItemCommonData',
+            headers=header
+        )
+        return item_info.json()
 
     def get_vendor_info(self):
         vendor_names = []
@@ -162,9 +215,9 @@ class BungieApi:
 
         vendor_info = {}
 
-        vendor_hashes = list(self.get_vendors('all').json()['Response']['sales']['data'].keys())
-
-        for i in range(len(vendor_hashes)):
+        vendor_hashes = list(self.get_vendors().json()['Response']['sales']['data'].keys())
+        print('fetching vendor information: ')
+        for i in tqdm(range(len(vendor_hashes))):
             vendor_manifest = self.manifestVendorDescription(vendor_hashes[i]).json()
 
             vendor_names.append(vendor_manifest['Response']['displayProperties']['name'])
@@ -173,9 +226,9 @@ class BungieApi:
             vendor_description.append(vendor_manifest['Response']['displayProperties']['description'])
 
             vendor_info[vendor_names[i]] = {'hash': f'{vendor_hashes[i]}',
-                                            'subtitle': f'{vendor_subtitles[i]}',
-                                            'identifier': f'{vendor_identifier[i]}',
-                                            'description': f'{vendor_description[i]}'}
+                                                 'subtitle': f'{vendor_subtitles[i]}',
+                                                 'identifier': f'{vendor_identifier[i]}',
+                                                 'description': f'{vendor_description[i]}'}
         return vendor_info
 
     def handleItemIndexes(self, indexes, vendor_indexes, vendor_index_list):
@@ -273,7 +326,7 @@ class BungieApi:
         pull_postmaster_response = oauth.post(
             f"{endpoint}/Destiny2/Actions/Items/PullFromPostmaster/",
             headers=header,
-            data={'characterId': f'{self.character_id[character-1]}',
+            data={'characterId': f'{self.character_ids[character-1]}',
                   'membershipType': f'{self.membership_type}',
                   'itemId': f'{item_id}',
                   'itemReferenceHash': f'{item_reference_hash}'}
@@ -288,10 +341,11 @@ class BungieApi:
 if __name__ == '__main__':
     api = BungieApi()
     # printdict(api.getManifest())
-
+    #printdict(api.get_character(3))
+    printdict(api.get_detailed_item_info(6917529201513267083))
     #printdict(api.getAvailableModsBanshee())
-
-    # api.pullfrompostmaster()
     #printdict(api.getXurInventory())
-    printdict(api.get_vendor_info())
+
+    # printdict(api.get_vendor_info())
+
     # app.run(debug=True, host='0.0.0.0')
