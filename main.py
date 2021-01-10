@@ -197,7 +197,10 @@ class BungieApi:
                 'itemHash': f'{item_hash}',
                 'itemInstanceId': f'{equipped_item_list[i]["itemInstanceId"]}'})
 
-        return equipped_items
+        return {'primary weapons': f'{primary_slot}',
+                'secondary weapons': f'{secondary_slot}',
+                'heavy weapons': f'{heavy_slot}',
+                'equipped weapons': f'{equipped_items}'}
 
     def get_detailed_item_info(self, item_instance_id):
         item_info = oauth.get(
@@ -341,10 +344,10 @@ class BungieApi:
 if __name__ == '__main__':
     api = BungieApi()
     # printdict(api.getManifest())
-    #printdict(api.get_character(3))
-    printdict(api.get_detailed_item_info(6917529201513267083))
-    #printdict(api.getAvailableModsBanshee())
-    #printdict(api.getXurInventory())
+    printdict(api.get_character(3))
+    # printdict(api.get_detailed_item_info(6917529201513267083))
+    # printdict(api.getAvailableModsBanshee())
+    # printdict(api.getXurInventory())
 
     # printdict(api.get_vendor_info())
 
