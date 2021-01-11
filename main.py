@@ -109,20 +109,15 @@ class BungieApi:
 
         return signed_in
 
-    def getManifest(self):
+    def getManifest(self, definition='', object_hash=''):
         manifest = oauth.get(
-            f'{endpoint}/Destiny2/Manifest/',
+            f'{endpoint}/Destiny2/Manifest/{definition}/{object_hash}',
             headers=header
         )
-        manifest_en = manifest.json()['Response']['jsonWorldComponentContentPaths']['en']
-        return manifest_en
-
-    def manifestVendorDescription(self, vendor_hash):
-        vendor_definition = oauth.get(
-            f'{endpoint}/Destiny2/Manifest/DestinyVendorDefinition/{vendor_hash}',
-            headers=header
-        )
-        return vendor_definition
+        if definition == '' and object_hash == '':
+            manifest_en = manifest.json()['Response']['jsonWorldComponentContentPaths']['en']
+            return manifest_en
+        return manifest.json()
 
     def manifestInventoryItemDefinition(self, item_hash):
         inventory_item_definition = oauth.get(
@@ -131,6 +126,13 @@ class BungieApi:
         )
         return inventory_item_definition
 
+    def manifestInventoryItemLiteDefinition(self, item_hash):
+        inventory_item_lite_definition = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/DestinyInventoryItemLiteDefinition/{item_hash}',
+            headers=header
+        )
+        return inventory_item_lite_definition
+
     def manifestInventoryBucketDefinition(self, bucket_hash):
         inventory_bucket_definition = oauth.get(
             f'{endpoint}/Destiny2/Manifest/DestinyInventoryBucketDefinition/{bucket_hash}',
@@ -138,21 +140,42 @@ class BungieApi:
         )
         return inventory_bucket_definition.json()
 
-    def getItemName(self, item_hash):
-        return self.manifestInventoryItemDefinition(item_hash).json()['Response']['displayProperties']['name']
-
-    def locales(self):
-        locales = oauth.get(
-            f'{endpoint}/GetAvailableLocales/',
+    def manifestEnergyTypeDefinition(self, energy_type):
+        energy_type_definition = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/DestinyEnergyTypeDefinition/{energy_type}',
             headers=header
         )
-        return locales
+        return energy_type_definition.json()
+
+    def manifestLocationDefinition(self, location_id):
+        location_definition = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/DestinyLocationDefinition/{location_id}',
+            headers=header
+        )
+        return location_definition.json()
+
+    def manifestStatDefinition(self, stat_id):
+        stat_definition = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/DestinyStatDefinition/{stat_id}',
+            headers=header
+        )
+        return stat_definition.json()
+
+    def manifestDestinationDefinition(self, destination_id):
+        destination_definition = oauth.get(
+            f'{endpoint}/Destiny2/Manifest/DestinyDestinationDefinition/{destination_id}',
+            headers=header
+        )
+        return destination_definition.json()
+
+    def getItemName(self, item_hash):
+        return self.getManifest('DestinyInventoryItemDefinition', str(item_hash))['Response']['displayProperties']['name']
 
     def get_vendors(self, vendor='all'):
         if vendor in self.vendorhashes.keys():
             vendors = oauth.get(
                 f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}/Character/{self.character_ids[0]}'
-                f'/Vendors/{self.vendorhashes[vendor]}?description=True&components=Vendors',
+                f'/Vendors/{self.vendorhashes[vendor]}?description=True&components=Vendors,VendorSales',
                 headers=header
             )
             return vendors
@@ -164,16 +187,16 @@ class BungieApi:
             raise ValueError('choose a character between 1-3')
 
         equipped_items = {}
-        primary_weapons = {}
-        secondary_weapons = {}
-        heavy_weapons = {}
+        weapons = {}
+        bucket_hashes_weapons = (1498876634, 2465295065, 953998645)
 
         character_inventory = oauth.get(
             f'{endpoint}/Destiny2/{self.membership_type}/Profile/{self.membership_id}'
             f'/Character/{self.character_ids[character_num-1]}'
-            f'/?components=CharacterInventories,CharacterEquipment',
+            f'/?components=Characters,CharacterInventories,CharacterEquipment',
             headers=header
         )
+        printjson(character_inventory)
         item_list = character_inventory.json()['Response']['inventory']['data']['items']
 
         for i in tqdm(range(len(item_list))):
@@ -191,42 +214,38 @@ class BungieApi:
             except KeyError:
                 bucket_name = ''
 
-            if bucket_hash == 1498876634:
+            if bucket_hash in bucket_hashes_weapons:
                 item_name = self.getItemName(item_hash)
 
-                primary_weapons[f'{item_instance_id}'] = {
-                    'itemName': item_name,
-                    'bucket': bucket_name,
-                    'itemHash': item_hash}
-
-            elif bucket_hash == 2465295065:
-                item_name = self.getItemName(item_hash)
-
-                secondary_weapons[f'{item_instance_id}'] = {
-                    'itemName': item_name,
-                    'bucket': bucket_name,
-                    'itemHash': item_hash}
-
-            elif bucket_hash == 953998645:
-                item_name = self.getItemName(item_hash)
-
-                heavy_weapons[f'{item_instance_id}'] = {
+                weapons[f'{item_instance_id}'] = {
                     'itemName': item_name,
                     'bucket': bucket_name,
                     'itemHash': item_hash}
 
         equipped_item_list = character_inventory.json()['Response']['equipment']['data']['items']
-        for i in range(8):
+        for i in tqdm(range(8)):
             item_hash = equipped_item_list[i]['itemHash']
             item_name = self.getItemName(item_hash)
-            equipped_items[f'{item_name}'] = {
-                'itemHash': f'{item_hash}',
-                'itemInstanceId': f'{equipped_item_list[i]["itemInstanceId"]}'}
+            bucket_hash = equipped_item_list[i]['bucketHash']
+
+            try:
+                item_instance_id = item_list[i]['itemInstanceId']
+            except KeyError:
+                item_instance_id = None
+
+            bucket_info = self.manifestInventoryBucketDefinition(bucket_hash)
+            try:
+                bucket_name = bucket_info['Response']['displayProperties']['name']
+            except KeyError:
+                bucket_name = ''
+
+            equipped_items[f'{item_instance_id}'] = {
+                    'itemName': item_name,
+                    'bucket': bucket_name,
+                    'itemHash': item_hash}
 
         return {'equipment': equipped_items,
-                f'primary weapons': primary_weapons,
-                f'secondary weapons': secondary_weapons,
-                f'heavy weapons': heavy_weapons}
+                f'weaponsOnCharacter': weapons}
 
     def get_detailed_item_info(self, item_instance_id):
         item_info = oauth.get(
@@ -241,13 +260,12 @@ class BungieApi:
         vendor_subtitles = []
         vendor_identifier = []
         vendor_description = []
-
         vendor_info = {}
 
         vendor_hashes = list(self.get_vendors().json()['Response']['vendors']['data'].keys())
-        print('fetching vendor information: ')
+
         for i in tqdm(range(len(vendor_hashes))):
-            vendor_manifest = self.manifestVendorDescription(vendor_hashes[i]).json()
+            vendor_manifest = self.getManifest('DestinyVendorDefinition', vendor_hashes[i])
 
             vendor_names.append(vendor_manifest['Response']['displayProperties']['name'])
             vendor_subtitles.append(vendor_manifest['Response']['displayProperties']['subtitle'])
@@ -255,9 +273,9 @@ class BungieApi:
             vendor_description.append(vendor_manifest['Response']['displayProperties']['description'])
 
             vendor_info[vendor_names[i]] = {'hash': f'{vendor_hashes[i]}',
-                                                 'subtitle': f'{vendor_subtitles[i]}',
-                                                 'identifier': f'{vendor_identifier[i]}',
-                                                 'description': f'{vendor_description[i]}'}
+                                            'subtitle': f'{vendor_subtitles[i]}',
+                                            'identifier': f'{vendor_identifier[i]}',
+                                            'description': f'{vendor_description[i]}'}
         return vendor_info
 
     def handleItemIndexes(self, indexes, vendor_indexes, vendor_index_list):
@@ -275,11 +293,11 @@ class BungieApi:
         return item_hash, item_owned
 
     def getAvailableModsBanshee(self):
-        vendor_definition = self.manifestVendorDescription('672118013')
+        vendor_definition = self.getManifest('DestinyVendorDefinition', '672118013')
 
         # unsure if the positional argument will work in the future (18)
-        weapon_mod_indexes = vendor_definition.json()['Response']['categories'][18]['vendorItemIndexes']
-        armor_mod_indexes = vendor_definition.json()['Response']['categories'][17]['vendorItemIndexes']
+        weapon_mod_indexes = vendor_definition['Response']['categories'][18]['vendorItemIndexes']
+        armor_mod_indexes = vendor_definition['Response']['categories'][17]['vendorItemIndexes']
 
         vendor = self.get_vendors('banshee')
 
@@ -303,12 +321,12 @@ class BungieApi:
                 }
 
     def getXurInventory(self):
-        vendor_definition = self.manifestVendorDescription('2190858386')
+        vendor_definition = self.getManifest('DestinyVendorDefinition', '2190858386')
 
-        exotic_weapon_indexes = vendor_definition.json()['Response']['categories'][1]['vendorItemIndexes']
-        armor_hunter = vendor_definition.json()['Response']['categories'][2]['vendorItemIndexes']
-        armor_titan = vendor_definition.json()['Response']['categories'][3]['vendorItemIndexes']
-        armor_warlock = vendor_definition.json()['Response']['categories'][4]['vendorItemIndexes']
+        exotic_weapon_indexes = vendor_definition['Response']['categories'][1]['vendorItemIndexes']
+        armor_hunter = vendor_definition['Response']['categories'][2]['vendorItemIndexes']
+        armor_titan = vendor_definition['Response']['categories'][3]['vendorItemIndexes']
+        armor_warlock = vendor_definition['Response']['categories'][4]['vendorItemIndexes']
 
         vendor = self.get_vendors('xur')
 
@@ -345,6 +363,13 @@ class BungieApi:
             headers=header
         )
         return activity_history
+
+    def get_post_game_carnage_report(self, activity_id):
+        post_game_carnage_report = oauth.get(
+            f'{endpoint}/Destiny2/Stats/PostGameCarnageReport/{activity_id}/',
+            headers=header
+        )
+        return post_game_carnage_report.json()
 
     def clanstatus(self):
         print("Clan Reward Status")
@@ -385,23 +410,30 @@ class BungieApi:
                 item_hash = inventory_data[i]['itemHash']
                 item_name = self.getItemName(item_hash)
                 bucket_info = self.manifestInventoryBucketDefinition(inventory_data[i]['bucketHash'])
-                bucket_name = bucket_info['Response']['displayProperties']['name']
+
+                try:
+                    bucket_name = bucket_info['Response']['displayProperties']['name']
+                except KeyError:
+                    bucket_name = ''
+
                 try:
                     item_instance_id = inventory_data[i]['itemInstanceId']
                 except KeyError:
                     item_instance_id = ""
 
-                vault_items[bucket_name] = {
-                    'itemName': f'{item_name}',
-                    'itemHash': f'{item_hash}',
-                    'itemInstanceId': f'{item_instance_id}'}
+                vault_items[f'{item_instance_id}'] = {
+                    'itemName': item_name,
+                    'bucket': bucket_name,
+                    'itemHash': item_hash}
 
         return vault_items
 
 
 if __name__ == '__main__':
     api = BungieApi()
-    # printdict(api.getManifest())
+    manifest_definition_list = list(api.getManifest().keys())
+    print(manifest_definition_list)
+    # printjson(api.manifestInventoryBucketDefinition())
     # printdict(api.get_vendor_info())
     printdict(api.get_character_inventory(3))
     # printdict(api.get_detailed_item_info(6917529201513267083))
@@ -410,8 +442,7 @@ if __name__ == '__main__':
     # printdict(api.getAvailableModsBanshee())
     # printdict(api.getXurInventory())
     # printjson(api.get_activity_history())
-    # printdict(api.get_profile_inventories())
-
-    # printdict(api.get_vendor_info())
+    # printdict(api.get_post_game_carnage_report())
+    # printdict(api.get_vault_items())
 
     # app.run(debug=True, host='0.0.0.0')
